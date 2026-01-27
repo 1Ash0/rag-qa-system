@@ -30,6 +30,9 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info(f"Chunk size: {settings.chunk_size}, Overlap: {settings.chunk_overlap}")
     logger.info(f"Rate limit: {settings.rate_limit}")
+    
+    # DEBUG: Check API Key - REMOVED FOR SECURITY
+        
     yield
     logger.info("Shutting down RAG-QA System...")
 

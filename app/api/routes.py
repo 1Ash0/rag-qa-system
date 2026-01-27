@@ -30,6 +30,7 @@ from app.services.vector_store import get_vector_store
 from app.services.llm import LLMService, LLMError
 from app.background.tasks import process_document, get_document_store
 from app.api.dependencies import limiter
+from tenacity import RetryError
 
 router = APIRouter()
 settings = get_settings()
@@ -138,7 +139,7 @@ async def ask_question(request: Request, question_request: QuestionRequest):
         # Step 1: Embed the question
         embed_start = time.time()
         embedding_service = EmbeddingService()
-        query_embedding = embedding_service.embed_query(question)
+        query_embedding = await embedding_service.embed_query(question)
         embedding_latency_ms = round((time.time() - embed_start) * 1000, 2)
         
         # Step 2: Search for relevant chunks
@@ -208,12 +209,17 @@ async def ask_question(request: Request, question_request: QuestionRequest):
             metrics=metrics
         )
         
+    except RetryError as e:
+        # Unwrap the retry error to get the actual cause
+        logger.error(f"Processing failed after retries: {e.last_attempt.exception()}")
+        raise HTTPException(status_code=500, detail=f"Processing failed: {e.last_attempt.exception()}")
     except EmbeddingError as e:
         raise HTTPException(status_code=500, detail=f"Embedding error: {e}")
     except LLMError as e:
         raise HTTPException(status_code=500, detail=f"LLM error: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Processing error: {e}")
+        logger.error(f"Processing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
 
 
 @router.get("/documents", response_model=List[DocumentInfo])

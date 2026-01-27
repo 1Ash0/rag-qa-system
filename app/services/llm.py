@@ -7,6 +7,7 @@ import google.generativeai as genai
 from typing import List, Optional
 import logging
 import time
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from app.config import get_settings
 from app.services.vector_store import ChunkMetadata
@@ -53,6 +54,10 @@ Please provide a comprehensive answer based on the context above. If you referen
         
         genai.configure(api_key=settings.gemini_api_key)
         
+        # LOGGING API KEY DEBUG INFO: REMOVED FOR SECURITY
+        
+        self.api_key = settings.gemini_api_key # Store for debug
+        
         self.model = genai.GenerativeModel(
             model_name=settings.llm_model,
             system_instruction=self.SYSTEM_PROMPT
@@ -60,6 +65,12 @@ Please provide a comprehensive answer based on the context above. If you referen
         
         logger.info(f"LLMService initialized with model: {settings.llm_model}")
     
+    @retry(
+        stop=stop_after_attempt(6),
+        wait=wait_exponential(multiplier=2, min=5, max=90),  # Wait up to 90s for quota reset
+        retry=retry_if_exception_type(Exception),
+        reraise=True
+    )
     def generate_answer(
         self,
         question: str,
@@ -112,7 +123,12 @@ Please provide a comprehensive answer based on the context above. If you referen
                 
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
-            raise LLMError(f"Failed to generate answer: {e}")
+            
+            # Debug info
+            masked_key = f"{self.api_key[:10]}...{self.api_key[-5:]}" if hasattr(self, 'api_key') else "UNKNOWN"
+            debug_info = f"[Key: {masked_key}, Model: {self.model.model_name}]"
+            
+            raise LLMError(f"Failed to generate answer: {e} {debug_info}")
     
     def generate_with_no_context(self, question: str) -> str:
         """

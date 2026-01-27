@@ -173,7 +173,8 @@ async def process_document(document_id: str, file_path: str, filename: str):
         # Step 3: Generate embeddings
         embedding_service = EmbeddingService()
         chunk_texts = [chunk.content for chunk in chunks]
-        embeddings = embedding_service.embed_batch(chunk_texts)
+        embeddings = await embedding_service.embed_batch(chunk_texts)
+        logger.info(f"DEBUG_EMBEDDINGS_TYPE: {type(embeddings)}")
         
         logger.info(f"Generated {len(embeddings)} embeddings")
         

@@ -138,7 +138,7 @@ If you encounter performance issues:
 
 1. **High Embedding Latency**: Consider batch processing or caching
 2. **High Retrieval Latency**: Switch to IndexIVFFlat for > 100K chunks
-3. **High Generation Latency**: Use faster model (gemini-1.5-flash-8b) or streaming
+3. **High Generation Latency**: Use faster model (gemini-2.0-flash-lite) or streaming
 4. **Memory Issues**: Implement pagination for document listing
 
 ## Questions to Consider

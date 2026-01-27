@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     
     # Model Configuration
     embedding_model: str = "text-embedding-004"
-    llm_model: str = "gemini-1.5-flash"
+    llm_model: str = "models/gemini-flash-latest"
     
     # Paths
     upload_dir: str = "data/uploads"

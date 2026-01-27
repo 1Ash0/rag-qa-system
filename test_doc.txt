@@ -1,0 +1,10 @@
+# Create a small test file
+This is a test document for the RAG QA system.
+It contains some sample text to test document processing.
+
+The system should be able to do all these:
+1. Parse this document
+2. Create embeddings
+3. Answer questions about it
+
+This is a simple test to verify everything works.

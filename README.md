@@ -340,7 +340,7 @@ All configuration is managed via environment variables in `.env`:
 | `TOP_K` | 5 | Number of chunks to retrieve |
 | `SIMILARITY_THRESHOLD` | 0.3 | Minimum similarity score |
 | `EMBEDDING_MODEL` | "text-embedding-004" | Gemini embedding model |
-| `LLM_MODEL` | "gemini-1.5-flash" | Gemini generation model |
+| `LLM_MODEL` | "models/gemini-2.0-flash-lite" | Gemini generation model |
 
 ## Project Structure
 

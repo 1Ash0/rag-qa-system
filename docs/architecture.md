@@ -54,7 +54,7 @@ flowchart TB
     end
     
     subgraph Generation["Answer Generation"]
-        LLM["🤖 Gemini LLM<br/>(gemini-1.5-flash)"]
+        LLM["🤖 Gemini LLM<br/>(gemini-2.0-flash-lite)"]
         ANS["📝 Answer + Sources"]
         
         CT --> LLM

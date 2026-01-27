@@ -1,0 +1,421 @@
+RAG QA System - Architecture Diagrams Guide
+
+📊 Overview
+This folder contains 5 detailed Mermaid diagrams that visualize different aspects of the RAG-based Question
+Answering system. Each diagram serves a specific purpose and can be rendered in various tools.
+
+🎨 How to Render These Diagrams
+Option 1: GitHub (Recommended for Quick View)
+1. Copy the .mermaid file content
+2. Create a new file in your GitHub repo: docs/architecture.md
+3. Paste the content inside triple backticks with mermaid language:
+
+markdown
+
+```mermaid
+[paste diagram code here]
+```
+
+4. GitHub will automatically render it!
+
+Option 2: Mermaid Live Editor (Best for Editing)
+1. Go to https://mermaid.live/
+2. Paste the diagram code
+3. Edit in real-time with live preview
+4. Export as PNG/SVG/PDF
+
+Option 3: VS Code (Best for Development)
+1. Install "Mermaid Preview" extension
+2. Open .mermaid file
+3. Press Ctrl+Shift+P → "Mermaid: Preview"
+4. Live preview in side panel
+Option 4: Obsidian/Notion/Confluence
+Most modern documentation tools support Mermaid natively. Just paste the code in a mermaid code block.
+Option 5: Command Line Export
+bash
+
+# Install mermaid-cli
+npm install -g @mermaid-js/mermaid-cli
+# Convert to PNG
+mmdc -i architecture_diagram.mermaid -o architecture_diagram.png
+# Convert to SVG (better quality)
+mmdc -i architecture_diagram.mermaid -o architecture_diagram.svg -b transparent
+# Convert to PDF
+mmdc -i architecture_diagram.mermaid -o architecture_diagram.pdf
+
+📁 Diagram Files Explained
+1. architecture_diagram.mermaid
+Type: System Architecture Diagram
+Purpose: High-level overview of all components
+Use When: Explaining the entire system to stakeholders or interviewers
+What It Shows:
+Client layer (web UI, API clients)
+API gateway with rate limiting
+All API endpoints
+Upload processing pipeline (parse → chunk → embed → store)
+Query processing pipeline (embed → search → generate)
+Storage layer (files, vector DB, metadata)
+External services (Gemini API)
+Monitoring and logging
+Best For:
+README.md header diagram
+Architecture review presentations
+System design interviews
+Color Coding:
+
+🟢 Green: Upload/document processing flow
+🔵 Blue: Query/retrieval flow
+🟡 Yellow: Data storage
+
+🔴 Red: External API calls
+💙 Light Blue: API endpoints
+
+2. sequence_diagram.mermaid
+Type: Sequence Diagram
+Purpose: Shows step-by-step interactions over time
+Use When: Explaining API request/response flow and timing
+What It Shows:
+Upload Flow (Steps 1-11):
+File upload → Rate limit check → Save → Background processing
+Parse PDF → Chunk text → Generate embeddings → Store in FAISS
+Update metadata → Return response
+Query Flow (Steps 12-24):
+Question received → Rate limit check
+Embed query → FAISS search → Build context
+LLM generation → Collect metrics → Return answer
+Management Flows:
+Document status check
+Document deletion
+Best For:
+Understanding API behavior
+Debugging request flow issues
+Explaining latency breakdown
+API documentation
+Key Features:
+Shows exact API calls with parameters
+Displays response times (⏱️ 178ms, etc.)
+Illustrates parallel vs sequential operations
+Auto-numbered steps for easy reference
+
+3. component_diagram.mermaid
+
+Type: Component/Module Diagram
+Purpose: Shows internal code structure and file organization
+Use When: Explaining codebase structure to developers
+What It Shows:
+Project Structure:
+main.py - Application entry point
+config.py - Environment configuration
+api/routes.py - API endpoints
+api/dependencies.py - Rate limiting
+models/schemas.py - Pydantic models
+services/ - Business logic (parser, chunker, embeddings, etc.)
+background/tasks.py - Async processing
+utils/ - Helper functions
+
+Data Persistence:
+File system layout
+Vector store structure
+Optional database schema
+External Dependencies:
+Gemini API endpoints
+Rate limits and retry logic
+Best For:
+Onboarding new developers
+Code review discussions
+Planning refactoring
+Understanding module dependencies
+Key Features:
+Shows actual file names and functions
+Displays code-level details (parameters, return types)
+Illustrates data flow between modules
+Color-coded by layer (API, Service, Storage, etc.)
+
+4. dataflow_diagram.mermaid
+
+Type: Data Flow Diagram
+Purpose: Shows how data transforms through the system
+Use When: Explaining the RAG pipeline in detail
+What It Shows:
+Upload Pipeline (Steps 1-4):
+PDF → Text extraction → Chunking → Embedding → Vector storage
+Shows actual data at each step with examples
+Displays chunk sizes, vector dimensions, storage size
+Query Pipeline (Steps 5-9):
+Question → Embedding → Similarity search → Context building
+LLM generation → Response with metrics
+Shows similarity scores and ranking
+Best For:
+Understanding data transformations
+Explaining chunking strategy
+Demonstrating embedding process
+Showing retrieval mechanics
+Key Features:
+Real data examples at each step
+Shows chunk overlaps visually
+Displays vector dimensions (768D)
+Includes actual similarity scores
+Shows complete API response structure
+Example Data Shown:
+Input: "Q3 Financial Results..." (3,847 chars)
+↓
+8 chunks × 512 chars each
+↓
+8 embeddings × 768 dimensions
+↓
+Top-5 results with scores (0.88, 0.82, 0.76, 0.69, 0.55)
+
+5. vector_similarity_diagram.mermaid
+Type: Conceptual/Educational Diagram
+Purpose: Explains vector embeddings and similarity search
+Use When: Teaching how RAG works to beginners
+What It Shows:
+Text to Vector Transformation:
+Original chunks (readable text)
+Embedding API transformation
+Vector representation (simplified to 2D for visualization)
+Similarity Search Process:
+Query vector placement in space
+Distance to each document chunk
+Cosine similarity calculation
+Ranking by relevance
+Mathematical Explanation:
+Cosine similarity formula
+Step-by-step calculation example
+Score interpretation guide
+Best For:
+Explaining RAG to non-technical stakeholders
+Teaching embeddings to beginners
+Understanding why results are ranked certain ways
+Troubleshooting retrieval quality issues
+Key Features:
+Visual representation of vector space
+Shows distances between query and chunks
+Explains why certain chunks rank higher
+Includes math formula with example
+Score interpretation guide (0.80+ = excellent, etc.)
+Educational Value:
+
+Chunk 1: "revenue increase from Q2"
+→ Very close to query (similarity: 0.88)
+→ Contains key terms: revenue, increase, Q2
+Chunk 5: "product launch signups"
+→ Far from query (similarity: 0.05)
+→ Different semantic meaning
+
+🎯 Which Diagram to Use When
+For Your GitHub README.md
+Use: architecture_diagram.mermaid
+markdown
+
+## Architecture
+```mermaid
+[paste architecture_diagram content]
+```
+Our system follows a clean architecture with three main layers...
+
+For Design Decisions Document
+Use: dataflow_diagram.mermaid + vector_similarity_diagram.mermaid
+markdown
+
+## Why 512 Character Chunks?
+```mermaid
+[paste dataflow_diagram showing chunking]
+```
+As shown in the diagram, we chunk at 512 characters because...
+## How Retrieval Works
+```mermaid
+[paste vector_similarity_diagram]
+```
+The similarity search finds relevant chunks by computing cosine similarity...
+
+For API Documentation
+Use: sequence_diagram.mermaid
+markdown
+
+## API Flow
+### Upload Document
+```mermaid
+[paste upload section of sequence diagram]
+```
+The upload process is asynchronous...
+### Ask Question
+```mermaid
+[paste query section of sequence diagram]
+```
+Query processing happens in three stages...
+
+For Technical Interview
+Have Ready:
+1.
+
+architecture_diagram.mermaid - "Let me show you the system overview"
+
+2.
+
+dataflow_diagram.mermaid - "Here's how data flows through the pipeline"
+
+3.
+
+vector_similarity_diagram.mermaid - "This is how similarity search works"
+
+For Code Review / Onboarding
+Use: component_diagram.mermaid
+markdown
+
+## Project Structure
+```mermaid
+[paste component_diagram]
+```
+The codebase is organized into these modules...
+
+🎨 Customizing the Diagrams
+Changing Colors
+mermaid
+
+%% Define custom color classes at the end
+classDef myColor fill:#ffcccc,stroke:#ff0000,stroke-width:2px
+class NodeName myColor
+
+Adding New Nodes
+mermaid
+
+%% Add to existing subgraph
+NewNode[Node Label<br/>Details]
+ExistingNode --> NewNode
+
+Modifying Text
+Just edit the text inside quotes or brackets:
+mermaid
+
+Node["Old text"] → Node["New text"]
+
+Exporting High-Quality Images
+For Presentations (PNG):
+bash
+
+mmdc -i architecture_diagram.mermaid -o architecture.png -w 2400 -H 1800 -b white
+
+For Documentation (SVG - scalable):
+bash
+
+mmdc -i architecture_diagram.mermaid -o architecture.svg -b transparent
+
+For Print (PDF):
+bash
+
+mmdc -i architecture_diagram.mermaid -o architecture.pdf -f
+
+🔧 Troubleshooting
+Diagram Not Rendering on GitHub
+Make sure it's in a .md file (not .txt )
+Use triple backticks with mermaid language
+Check for syntax errors in Mermaid Live Editor first
+
+Diagram Too Large
+Export as SVG (scales infinitely)
+Use mmdc with custom width/height
+Split into multiple smaller diagrams
+
+Syntax Errors
+Validate at https://mermaid.live/
+Check for:
+Unclosed brackets [ or quotes "
+Missing arrows -->
+Typos in node names
+Mismatched subgraph opening/closing
+
+Export Quality Issues
+bash
+
+# High DPI export
+mmdc -i diagram.mermaid -o diagram.png -s 3 -b white
+# -s 3 means 3x scale (high quality)
+# -b white sets background color
+
+📚 Learning Resources
+Mermaid Documentation
+Official Docs: https://mermaid.js.org/
+Tutorial: https://mermaid.js.org/intro/
+Live Editor: https://mermaid.live/
+
+Diagram Types
+Flowchart: https://mermaid.js.org/syntax/flowchart.html
+Sequence: https://mermaid.js.org/syntax/sequenceDiagram.html
+Class: https://mermaid.js.org/syntax/classDiagram.html
+Examples
+Mermaid Examples: https://github.com/mermaid-js/mermaid/tree/develop/demos
+Awesome Mermaid: https://github.com/mermaid-js/awesome-mermaid
+
+🚀 Quick Start Checklist
+Copy diagram code to your GitHub repo
+Test rendering in Mermaid Live Editor
+Add to README.md in code blocks
+Export as PNG/SVG for presentations
+Customize colors to match your branding
+Add explanatory text around diagrams
+Validate all syntax before committing
+
+💡 Pro Tips
+1. Use Comments: %% This is a comment - helps explain complex sections
+2. Subgraphs: Group related nodes for better organization
+3. Direction: graph TB (top-bottom), graph LR (left-right)
+4. Line Styles:
+--> solid line
+-.-> dotted line
+==> thick line
+
+5. Node Shapes:
+[] rectangle
+() rounded rectangle
+{} rhombus
+(()) circle
+[[]] subroutine
+
+6. Keep It Simple: Don't try to show everything in one diagram
+
+7. Layer Information: Start with high-level, add detail as needed
+8. Test Rendering: Always preview before committing
+
+🎯 Interview Preparation
+When explaining these diagrams in an interview:
+1. Start with Overview: "Let me walk you through the architecture..."
+2. Follow the Data: "When a user uploads a document, here's what happens..."
+3. Highlight Decisions: "We chose FAISS because... we set chunk size to 512 because..."
+4. Show Trade-offs: "Larger chunks mean better context but slower retrieval..."
+5. Use Metrics: "Our search completes in 8ms on average..."
+6. Be Prepared to Deep Dive: Have detailed diagrams ready for follow-up questions
+Example Flow:
+Interviewer: "How does your system work?"
+You: [Show architecture_diagram.mermaid]
+"The system has three main layers: API, Processing, and Storage..."
+Interviewer: "Tell me more about the embedding process"
+You: [Show dataflow_diagram.mermaid]
+"Here you can see the exact transformation from PDF to vectors..."
+Interviewer: "How do you find relevant chunks?"
+You: [Show vector_similarity_diagram.mermaid]
+"We use cosine similarity in 768-dimensional space..."
+
+📝 Integration with Your Project
+Add this to your docs/ folder:
+
+docs/
+├── architecture_diagram.mermaid
+├── sequence_diagram.mermaid
+├── component_diagram.mermaid
+├── dataflow_diagram.mermaid
+├── vector_similarity_diagram.mermaid
+├── diagrams_guide.md (this file)
+└── design_decisions.md
+
+Reference in your main README.md:
+markdown
+
+## Documentation
+- 📊 [Architecture Diagrams](docs/diagrams_guide.md)
+- 📝 [Design Decisions](docs/design_decisions.md)
+- 🔧 [API Documentation](docs/api.md)
+
+Good luck with your internship! 🚀
+
+
