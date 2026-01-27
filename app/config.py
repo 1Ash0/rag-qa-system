@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     # Rate Limiting
     rate_limit: str = "10/minute"
     
+    # File upload constraints
+    max_file_size_mb: int = 10
+    
+    # Question validation
+    min_question_length: int = 5
+    max_question_length: int = 500
+    
     # Model Configuration
     embedding_model: str = "models/embedding-001"
     llm_model: str = "gemini-1.5-flash"

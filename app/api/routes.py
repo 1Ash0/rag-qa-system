@@ -22,7 +22,8 @@ from app.models.schemas import (
     AnswerResponse,
     SourceChunk,
     HealthResponse,
-    ProcessingStatus
+    ProcessingStatus,
+    QueryMetrics
 )
 from app.services.embeddings import EmbeddingService, EmbeddingError
 from app.services.vector_store import get_vector_store
@@ -63,10 +64,14 @@ async def upload_document(
             detail=f"Unsupported file format: {extension}. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
         )
     
-    # Validate file size (max 10MB)
+    # Validate file size (configurable limit)
     content = await file.read()
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
+    max_size_bytes = settings.max_file_size_mb * 1024 * 1024
+    if len(content) > max_size_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File size exceeds {settings.max_file_size_mb}MB limit"
+        )
     
     if len(content) == 0:
         raise HTTPException(status_code=400, detail="Empty file uploaded")
@@ -112,12 +117,25 @@ async def ask_question(request: Request, question_request: QuestionRequest):
     
     Returns the answer along with source citations and performance metrics.
     """
+    from datetime import datetime
+    
     total_start = time.time()
-    metrics = {}
     
     question = question_request.question.strip()
     top_k = question_request.top_k
     document_ids = question_request.document_ids
+    
+    # Validate question length
+    if len(question) < settings.min_question_length:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Question must be at least {settings.min_question_length} characters long"
+        )
+    if len(question) > settings.max_question_length:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Question must not exceed {settings.max_question_length} characters"
+        )
     
     vector_store = get_vector_store()
     
@@ -133,7 +151,7 @@ async def ask_question(request: Request, question_request: QuestionRequest):
         embed_start = time.time()
         embedding_service = EmbeddingService()
         query_embedding = embedding_service.embed_query(question)
-        metrics["embedding_latency_ms"] = round((time.time() - embed_start) * 1000, 2)
+        embedding_latency_ms = round((time.time() - embed_start) * 1000, 2)
         
         # Step 2: Search for relevant chunks
         retrieval_start = time.time()
@@ -143,15 +161,19 @@ async def ask_question(request: Request, question_request: QuestionRequest):
             document_ids=document_ids,
             similarity_threshold=settings.similarity_threshold
         )
-        metrics["retrieval_latency_ms"] = round((time.time() - retrieval_start) * 1000, 2)
-        metrics["chunks_retrieved"] = len(results)
+        retrieval_latency_ms = round((time.time() - retrieval_start) * 1000, 2)
+        chunks_retrieved = len(results)
         
-        # Log similarity scores for metrics tracking
+        # Calculate similarity scores
+        avg_similarity_score = 0.0
+        max_similarity_score = 0.0
+        min_similarity_score = 0.0
+        
         if results:
             scores = [score for _, score in results]
-            metrics["avg_similarity_score"] = round(sum(scores) / len(scores), 4)
-            metrics["max_similarity_score"] = round(max(scores), 4)
-            metrics["min_similarity_score"] = round(min(scores), 4)
+            avg_similarity_score = round(sum(scores) / len(scores), 4)
+            max_similarity_score = round(max(scores), 4)
+            min_similarity_score = round(min(scores), 4)
         
         # Step 3: Generate answer
         generation_start = time.time()
@@ -160,11 +182,10 @@ async def ask_question(request: Request, question_request: QuestionRequest):
         if not results:
             # Retrieval failure case: no relevant chunks found
             answer = llm_service.generate_with_no_context(question)
-            generation_latency = 0
+            generation_latency_ms = 0.0
         else:
             answer, generation_latency = llm_service.generate_answer(question, results)
-        
-        metrics["generation_latency_ms"] = round(generation_latency, 2)
+            generation_latency_ms = round(generation_latency, 2)
         
         # Build source citations
         sources = [
@@ -178,7 +199,20 @@ async def ask_question(request: Request, question_request: QuestionRequest):
             for chunk_meta, score in results
         ]
         
-        metrics["total_latency_ms"] = round((time.time() - total_start) * 1000, 2)
+        total_latency_ms = round((time.time() - total_start) * 1000, 2)
+        
+        # Create QueryMetrics object
+        metrics = QueryMetrics(
+            total_latency_ms=total_latency_ms,
+            embedding_latency_ms=embedding_latency_ms,
+            retrieval_latency_ms=retrieval_latency_ms,
+            generation_latency_ms=generation_latency_ms,
+            chunks_retrieved=chunks_retrieved,
+            avg_similarity_score=avg_similarity_score,
+            max_similarity_score=max_similarity_score,
+            min_similarity_score=min_similarity_score,
+            timestamp=datetime.utcnow().isoformat() + "Z"
+        )
         
         return AnswerResponse(
             answer=answer,

@@ -84,14 +84,24 @@ class SourceChunk(BaseModel):
     similarity_score: float
 
 
+class QueryMetrics(BaseModel):
+    """Detailed metrics for query processing"""
+    total_latency_ms: float = Field(..., description="Total end-to-end processing time")
+    embedding_latency_ms: float = Field(..., description="Time to embed the query")
+    retrieval_latency_ms: float = Field(..., description="FAISS similarity search time")
+    generation_latency_ms: float = Field(..., description="LLM answer generation time")
+    chunks_retrieved: int = Field(..., description="Number of chunks found")
+    avg_similarity_score: float = Field(default=0.0, description="Average similarity across chunks")
+    max_similarity_score: float = Field(default=0.0, description="Best chunk match score")
+    min_similarity_score: float = Field(default=0.0, description="Worst included chunk score")
+    timestamp: str = Field(..., description="ISO timestamp of the query")
+
+
 class AnswerResponse(BaseModel):
     """Response containing the generated answer"""
     answer: str = Field(..., description="The generated answer based on retrieved context")
     sources: List[SourceChunk] = Field(..., description="Source chunks used to generate the answer")
-    metrics: dict = Field(
-        default_factory=dict,
-        description="Performance metrics including latency and similarity scores"
-    )
+    metrics: QueryMetrics = Field(..., description="Detailed performance metrics")
     
     model_config = {
         "json_schema_extra": {
@@ -107,11 +117,15 @@ class AnswerResponse(BaseModel):
                     }
                 ],
                 "metrics": {
-                    "total_latency_ms": 1250,
-                    "embedding_latency_ms": 150,
-                    "retrieval_latency_ms": 50,
-                    "generation_latency_ms": 1050,
-                    "chunks_retrieved": 5
+                    "total_latency_ms": 1250.45,
+                    "embedding_latency_ms": 156.23,
+                    "retrieval_latency_ms": 12.45,
+                    "generation_latency_ms": 1081.77,
+                    "chunks_retrieved": 5,
+                    "avg_similarity_score": 0.7823,
+                    "max_similarity_score": 0.92,
+                    "min_similarity_score": 0.65,
+                    "timestamp": "2024-01-28T00:15:30.123Z"
                 }
             }
         }

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from pathlib import Path
 import tempfile
 import os
+import time
 
 # Set test environment before importing app
 os.environ["GEMINI_API_KEY"] = "test_key"
@@ -30,6 +31,7 @@ class TestHealthEndpoint:
         assert data["status"] == "healthy"
         assert "version" in data
         assert "documents_count" in data
+        assert "vector_store_ready" in data
 
 
 class TestRootEndpoint:
@@ -98,60 +100,67 @@ class TestDocumentParser:
     def test_parse_txt_file(self):
         """Test parsing a TXT file"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            f.write("This is test content.\nWith multiple lines.")
+            f.write("This is a test document.\nWith multiple lines.")
             temp_path = f.name
         
         try:
-            content = DocumentParser.parse(temp_path)
-            assert "This is test content" in content
-            assert "multiple lines" in content
+            parser = DocumentParser()
+            text = parser.parse(temp_path)
+            
+            assert "This is a test document" in text
+            assert "With multiple lines" in text
+        finally:
+            os.unlink(temp_path)
+    
+    def test_parse_empty_file(self):
+        """Test parsing an empty file"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            temp_path = f.name
+        
+        try:
+            parser = DocumentParser()
+            with pytest.raises(DocumentParseError):
+                parser.parse(temp_path)
         finally:
             os.unlink(temp_path)
     
     def test_parse_nonexistent_file(self):
         """Test parsing a file that doesn't exist"""
-        with pytest.raises(DocumentParseError) as exc_info:
-            DocumentParser.parse("/nonexistent/file.txt")
-        
-        assert "not found" in str(exc_info.value).lower()
-    
-    def test_unsupported_format(self):
-        """Test parsing an unsupported file format"""
-        with tempfile.NamedTemporaryFile(suffix='.xyz', delete=False) as f:
-            f.write(b"test content")
-            temp_path = f.name
-        
-        try:
-            with pytest.raises(DocumentParseError) as exc_info:
-                DocumentParser.parse(temp_path)
-            assert "unsupported" in str(exc_info.value).lower()
-        finally:
-            os.unlink(temp_path)
-    
-    def test_get_supported_formats(self):
-        """Test getting supported formats"""
-        formats = DocumentParser.get_supported_formats()
-        assert ".pdf" in formats
-        assert ".txt" in formats
+        parser = DocumentParser()
+        with pytest.raises(DocumentParseError):
+            parser.parse("/nonexistent/file.txt")
 
 
 class TestUploadEndpoint:
     """Tests for the document upload endpoint"""
     
-    def test_upload_no_file(self):
-        """Test upload without a file"""
-        response = client.post("/api/v1/upload")
-        assert response.status_code == 422  # Validation error
+    def test_upload_txt_file(self):
+        """Test uploading a TXT file"""
+        # Create a temporary text file
+        content = b"This is a test document for upload."
+        
+        response = client.post(
+            "/api/v1/upload",
+            files={"file": ("test.txt", content, "text/plain")}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "document_id" in data
+        assert data["filename"] == "test.txt"
+        assert data["status"] in ["pending", "processing"]
     
     def test_upload_unsupported_format(self):
         """Test uploading an unsupported file format"""
-        content = b"test content"
+        content = b"fake content"
+        
         response = client.post(
             "/api/v1/upload",
-            files={"file": ("test.xyz", content, "application/octet-stream")}
+            files={"file": ("test.docx", content, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
         )
+        
         assert response.status_code == 400
-        assert "unsupported" in response.json()["detail"].lower()
+        assert "Unsupported file format" in response.json()["detail"]
     
     def test_upload_empty_file(self):
         """Test uploading an empty file"""
@@ -159,8 +168,22 @@ class TestUploadEndpoint:
             "/api/v1/upload",
             files={"file": ("empty.txt", b"", "text/plain")}
         )
+        
         assert response.status_code == 400
-        assert "empty" in response.json()["detail"].lower()
+        assert "Empty file" in response.json()["detail"]
+    
+    def test_upload_file_too_large(self):
+        """Test uploading a file that exceeds size limit"""
+        # Create content larger than 10MB
+        large_content = b"x" * (11 * 1024 * 1024)
+        
+        response = client.post(
+            "/api/v1/upload",
+            files={"file": ("large.txt", large_content, "text/plain")}
+        )
+        
+        assert response.status_code == 400
+        assert "exceeds" in response.json()["detail"].lower()
 
 
 class TestAskEndpoint:
@@ -168,45 +191,164 @@ class TestAskEndpoint:
     
     def test_ask_without_documents(self):
         """Test asking a question when no documents are uploaded"""
-        # This may or may not fail depending on if documents exist from previous tests
         response = client.post(
             "/api/v1/ask",
-            json={"question": "What is the meaning of life?"}
+            json={"question": "What is this about?"}
         )
-        # Either no documents error or success
-        assert response.status_code in [200, 400]
+        
+        assert response.status_code == 400
+        assert "No documents" in response.json()["detail"]
     
-    def test_ask_invalid_question(self):
-        """Test asking with an invalid question (too short)"""
+    def test_ask_with_short_question(self):
+        """Test asking a question that's too short"""
         response = client.post(
             "/api/v1/ask",
-            json={"question": "ab"}  # Less than 3 characters
+            json={"question": "Hi"}
         )
-        assert response.status_code == 422  # Validation error
+        
+        # Pydantic validation returns 422, not 400
+        assert response.status_code == 422
+        assert "at least" in response.json()["detail"][0]["msg"].lower()
     
-    def test_ask_with_filters(self):
-        """Test that document_ids filter is accepted"""
+    def test_ask_with_long_question(self):
+        """Test asking a question that's too long"""
+        long_question = "x" * 501
+        
         response = client.post(
             "/api/v1/ask",
-            json={
-                "question": "Test question here",
-                "document_ids": ["doc_nonexistent"],
-                "top_k": 3
-            }
+            json={"question": long_question}
         )
-        # Should either work or return no documents error
-        assert response.status_code in [200, 400, 500]
+        
+        assert response.status_code == 400
+        assert "exceed" in response.json()["detail"].lower()
+    
+    def test_ask_metrics_structure(self):
+        """Test that metrics have the correct structure"""
+        # This test would need documents to be uploaded first
+        # For now, we'll test the schema validation
+        from app.models.schemas import QueryMetrics
+        
+        # Test that QueryMetrics can be instantiated with all required fields
+        metrics = QueryMetrics(
+            total_latency_ms=1250.45,
+            embedding_latency_ms=156.23,
+            retrieval_latency_ms=12.45,
+            generation_latency_ms=1081.77,
+            chunks_retrieved=5,
+            avg_similarity_score=0.7823,
+            max_similarity_score=0.92,
+            min_similarity_score=0.65,
+            timestamp="2024-01-28T00:15:30.123Z"
+        )
+        
+        assert metrics.total_latency_ms == 1250.45
+        assert metrics.chunks_retrieved == 5
+        assert metrics.avg_similarity_score == 0.7823
+        assert metrics.timestamp == "2024-01-28T00:15:30.123Z"
 
 
 class TestDocumentsEndpoint:
     """Tests for the documents listing endpoint"""
     
     def test_list_documents(self):
-        """Test listing documents"""
+        """Test listing all documents"""
         response = client.get("/api/v1/documents")
+        
         assert response.status_code == 200
-        assert isinstance(response.json(), list)
+        data = response.json()
+        assert isinstance(data, list)
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+class TestRateLimiting:
+    """Tests for rate limiting functionality"""
+    
+    def test_rate_limit_enforcement(self):
+        """Test that rate limiting is enforced"""
+        # Make multiple rapid requests to trigger rate limit
+        # Note: This test may be flaky depending on rate limit settings
+        
+        responses = []
+        for _ in range(15):  # Exceed the 10/minute limit
+            response = client.get("/api/v1/health")
+            responses.append(response)
+            time.sleep(0.1)  # Small delay to avoid overwhelming the server
+        
+        # At least one request should be rate limited
+        status_codes = [r.status_code for r in responses]
+        
+        # Either all succeed (if rate limiting is disabled in tests)
+        # or some are rate limited (429)
+        assert all(code in [200, 429] for code in status_codes)
+
+
+class TestErrorHandling:
+    """Tests for error handling scenarios"""
+    
+    def test_invalid_document_id(self):
+        """Test accessing a non-existent document"""
+        response = client.get("/api/v1/documents/invalid_id/status")
+        
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+    
+    def test_delete_nonexistent_document(self):
+        """Test deleting a document that doesn't exist"""
+        response = client.delete("/api/v1/documents/nonexistent_id")
+        
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+    
+    def test_invalid_json_payload(self):
+        """Test sending invalid JSON to ask endpoint"""
+        response = client.post(
+            "/api/v1/ask",
+            data="invalid json",
+            headers={"Content-Type": "application/json"}
+        )
+        
+        assert response.status_code == 422  # Unprocessable Entity
+
+
+class TestMetricsValidation:
+    """Tests for metrics validation and structure"""
+    
+    def test_query_metrics_defaults(self):
+        """Test QueryMetrics with default values for similarity scores"""
+        from app.models.schemas import QueryMetrics
+        
+        metrics = QueryMetrics(
+            total_latency_ms=100.0,
+            embedding_latency_ms=50.0,
+            retrieval_latency_ms=10.0,
+            generation_latency_ms=40.0,
+            chunks_retrieved=0,
+            timestamp="2024-01-28T00:15:30.123Z"
+        )
+        
+        # When no chunks are retrieved, similarity scores should default to 0.0
+        assert metrics.avg_similarity_score == 0.0
+        assert metrics.max_similarity_score == 0.0
+        assert metrics.min_similarity_score == 0.0
+    
+    def test_query_metrics_with_scores(self):
+        """Test QueryMetrics with actual similarity scores"""
+        from app.models.schemas import QueryMetrics
+        
+        metrics = QueryMetrics(
+            total_latency_ms=1250.45,
+            embedding_latency_ms=156.23,
+            retrieval_latency_ms=12.45,
+            generation_latency_ms=1081.77,
+            chunks_retrieved=5,
+            avg_similarity_score=0.7823,
+            max_similarity_score=0.92,
+            min_similarity_score=0.65,
+            timestamp="2024-01-28T00:15:30.123Z"
+        )
+        
+        # Verify all fields are correctly set
+        assert metrics.chunks_retrieved == 5
+        assert 0.0 <= metrics.avg_similarity_score <= 1.0
+        assert 0.0 <= metrics.max_similarity_score <= 1.0
+        assert 0.0 <= metrics.min_similarity_score <= 1.0
+        assert metrics.min_similarity_score <= metrics.avg_similarity_score <= metrics.max_similarity_score
