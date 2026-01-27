@@ -163,7 +163,7 @@ Document: "Machine Learning accuracy is 95%"
 **Why it fails**: Embedding model may not capture all semantic equivalences.
 
 **Mitigation Strategy**:
-- ✅ Gemini embedding model (embedding-001) has strong semantic understanding
+- ✅ Gemini embedding model (text-embedding-004) has strong semantic understanding
 - ✅ Model generally handles common acronyms well
 - 🔮 Future: Implement query preprocessing to expand acronyms
 - 🔮 Consider maintaining a domain-specific terminology mapping
@@ -226,7 +226,7 @@ Based on testing with 100 documents (~50MB total):
 |--------|-------|-------|
 | **Average chunks per document** | 45 | Varies by document length |
 | **FAISS index size** | ~3.5MB | For 4,500 chunks (100 docs) |
-| **Embedding dimension** | 768 | Gemini embedding-001 |
+| **Embedding dimension** | 768 | Gemini text-embedding-004 |
 | **Index type** | IndexFlatIP | Inner product for cosine similarity |
 
 **Scalability Observations**:

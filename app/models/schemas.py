@@ -57,7 +57,7 @@ class DocumentStatusResponse(BaseModel):
 
 class QuestionRequest(BaseModel):
     """Request body for asking a question"""
-    question: str = Field(..., min_length=3, max_length=1000, description="The question to ask")
+    question: str = Field(..., min_length=5, max_length=500, description="The question to ask")
     document_ids: Optional[List[str]] = Field(
         default=None, 
         description="Optional list of document IDs to search within. If not provided, searches all documents."

@@ -125,18 +125,6 @@ async def ask_question(request: Request, question_request: QuestionRequest):
     top_k = question_request.top_k
     document_ids = question_request.document_ids
     
-    # Validate question length
-    if len(question) < settings.min_question_length:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Question must be at least {settings.min_question_length} characters long"
-        )
-    if len(question) > settings.max_question_length:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Question must not exceed {settings.max_question_length} characters"
-        )
-    
     vector_store = get_vector_store()
     
     # Check if we have any documents

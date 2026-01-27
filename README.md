@@ -339,7 +339,7 @@ All configuration is managed via environment variables in `.env`:
 | `MAX_QUESTION_LENGTH` | 500 | Maximum question length |
 | `TOP_K` | 5 | Number of chunks to retrieve |
 | `SIMILARITY_THRESHOLD` | 0.3 | Minimum similarity score |
-| `EMBEDDING_MODEL` | "models/embedding-001" | Gemini embedding model |
+| `EMBEDDING_MODEL` | "text-embedding-004" | Gemini embedding model |
 | `LLM_MODEL` | "gemini-1.5-flash" | Gemini generation model |
 
 ## Project Structure

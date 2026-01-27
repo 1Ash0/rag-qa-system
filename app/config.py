@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     max_question_length: int = 500
     
     # Model Configuration
-    embedding_model: str = "models/embedding-001"
+    embedding_model: str = "text-embedding-004"
     llm_model: str = "gemini-1.5-flash"
     
     # Paths
