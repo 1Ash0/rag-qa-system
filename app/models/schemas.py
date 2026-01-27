@@ -1,0 +1,126 @@
+"""
+Pydantic schemas for request/response validation
+"""
+
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from enum import Enum
+from datetime import datetime
+
+
+class ProcessingStatus(str, Enum):
+    """Document processing status"""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class DocumentUploadResponse(BaseModel):
+    """Response after uploading a document"""
+    document_id: str = Field(..., description="Unique identifier for the document")
+    filename: str = Field(..., description="Original filename")
+    status: ProcessingStatus = Field(..., description="Current processing status")
+    message: str = Field(..., description="Status message")
+    
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "document_id": "doc_abc123",
+                "filename": "research_paper.pdf",
+                "status": "pending",
+                "message": "Document queued for processing"
+            }
+        }
+    }
+
+
+class DocumentInfo(BaseModel):
+    """Information about a stored document"""
+    document_id: str
+    filename: str
+    file_type: str
+    status: ProcessingStatus
+    chunk_count: int = 0
+    uploaded_at: datetime
+    processed_at: Optional[datetime] = None
+    error: Optional[str] = None
+
+
+class DocumentStatusResponse(BaseModel):
+    """Response for document status query"""
+    document_id: str
+    status: ProcessingStatus
+    chunk_count: int = 0
+    message: str
+
+
+class QuestionRequest(BaseModel):
+    """Request body for asking a question"""
+    question: str = Field(..., min_length=3, max_length=1000, description="The question to ask")
+    document_ids: Optional[List[str]] = Field(
+        default=None, 
+        description="Optional list of document IDs to search within. If not provided, searches all documents."
+    )
+    top_k: int = Field(default=5, ge=1, le=20, description="Number of relevant chunks to retrieve")
+    
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "question": "What are the main findings of the research?",
+                "document_ids": ["doc_abc123"],
+                "top_k": 5
+            }
+        }
+    }
+
+
+class SourceChunk(BaseModel):
+    """Information about a source chunk used in answering"""
+    document_id: str
+    filename: str
+    chunk_index: int
+    content: str
+    similarity_score: float
+
+
+class AnswerResponse(BaseModel):
+    """Response containing the generated answer"""
+    answer: str = Field(..., description="The generated answer based on retrieved context")
+    sources: List[SourceChunk] = Field(..., description="Source chunks used to generate the answer")
+    metrics: dict = Field(
+        default_factory=dict,
+        description="Performance metrics including latency and similarity scores"
+    )
+    
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "answer": "The main findings indicate that...",
+                "sources": [
+                    {
+                        "document_id": "doc_abc123",
+                        "filename": "research_paper.pdf",
+                        "chunk_index": 3,
+                        "content": "The study found that...",
+                        "similarity_score": 0.92
+                    }
+                ],
+                "metrics": {
+                    "total_latency_ms": 1250,
+                    "embedding_latency_ms": 150,
+                    "retrieval_latency_ms": 50,
+                    "generation_latency_ms": 1050,
+                    "chunks_retrieved": 5
+                }
+            }
+        }
+    }
+
+
+class HealthResponse(BaseModel):
+    """Health check response"""
+    status: str = "healthy"
+    version: str = "1.0.0"
+    documents_count: int = 0
+    vector_store_ready: bool = False
