@@ -11,6 +11,9 @@ import time
 
 # Set test environment before importing app
 os.environ["GEMINI_API_KEY"] = "test_key"
+# Use temp directories for testing to ensure isolation
+os.environ["VECTOR_STORE_DIR"] = os.path.join(tempfile.gettempdir(), "rag_qa_test_vectors")
+os.environ["UPLOAD_DIR"] = os.path.join(tempfile.gettempdir(), "rag_qa_test_uploads")
 
 from app.main import app
 from app.services.chunker import TextChunker, TextChunk
@@ -189,6 +192,11 @@ class TestUploadEndpoint:
 class TestAskEndpoint:
     """Tests for the question answering endpoint"""
     
+    def setup_method(self):
+        """Reset vector store before each test"""
+        from app.services.vector_store import get_vector_store
+        get_vector_store().clear()
+
     def test_ask_without_documents(self):
         """Test asking a question when no documents are uploaded"""
         response = client.post(
@@ -219,8 +227,9 @@ class TestAskEndpoint:
             json={"question": long_question}
         )
         
-        assert response.status_code == 400
-        assert "exceed" in response.json()["detail"].lower()
+        # Pydantic validation returns 422, not 400
+        assert response.status_code == 422
+        assert "at most" in response.json()["detail"][0]["msg"].lower()
     
     def test_ask_metrics_structure(self):
         """Test that metrics have the correct structure"""

@@ -96,8 +96,8 @@ class EmbeddingService:
             logger.error(f"Embedding generation failed: {error_msg}")
             
             # Debug info
-            masked_key = f"{self.api_key[:10]}...{self.api_key[-5:]}" if hasattr(self, 'api_key') else "UNKNOWN"
-            debug_info = f"[Key: {masked_key}, Model: {self.model}]"
+            # Debug info - Do not log API key
+            debug_info = f"[Model: {self.model}]"
             
             # Check for quota/rate limit errors
             if "quota" in error_msg.lower() or "rate limit" in error_msg.lower() or "limit:" in error_msg.lower():
@@ -115,4 +115,4 @@ class EmbeddingService:
     @classmethod
     def get_dimension(cls) -> int:
         """Get the embedding dimension"""
-        return 768
+        return 3072

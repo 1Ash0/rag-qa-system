@@ -12,6 +12,9 @@ from typing import List, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.config import get_settings
 from app.models.schemas import (

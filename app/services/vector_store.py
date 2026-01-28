@@ -115,6 +115,11 @@ class VectorStore:
             
             logger.info(f"Loaded FAISS index with {self.index.ntotal} vectors")
             
+            # Check dimension mismatch
+            if self.index.d != self.dimension:
+                logger.warning(f"Index dimension mismatch (file: {self.index.d}, app: {self.dimension}), creating new index")
+                self._initialize_new()
+            
         except Exception as e:
             logger.error(f"Failed to load index: {e}, creating new one")
             self._initialize_new()
@@ -297,6 +302,22 @@ class VectorStore:
     def is_ready(self) -> bool:
         """Check if the vector store is ready for queries"""
         return self.index is not None
+
+    def clear(self):
+        """Clear all data from the vector store (used for testing)"""
+        with self._lock:
+            self._initialize_new()
+            # Also clear files
+            try:
+                index_path = self.store_path / "faiss.index"
+                metadata_path = self.store_path / "metadata.json"
+                if index_path.exists():
+                    index_path.unlink()
+                if metadata_path.exists():
+                    metadata_path.unlink()
+                logger.info("Cleared vector store")
+            except Exception as e:
+                logger.error(f"Failed to clear vector store files: {e}")
 
 
 # Singleton instance
